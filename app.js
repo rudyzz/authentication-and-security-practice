@@ -2,7 +2,10 @@ require('dotenv').config();
 const express = require("express");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+
+// Require bcrypt to use salting to enhance password security
+const bcrypt = require("bcrypt");
+const saltingRounds = 10;
 
 const app = express();
 
@@ -37,15 +40,21 @@ app.get("/login", (req, res) => {
 app.post("/login", (req, res) => {
     try {
         const username = req.body.username;
-        const password = md5(req.body.password);
+        const password = req.body.password;
 
         User.findOne({
             email: username
         }).then(foundUser => {
-            if (foundUser && foundUser.password === password) {
-                res.render("secrets");
+            if (foundUser) {
+                bcrypt.compare(password, foundUser.password, function(error, result) {
+                    if (result === true) {
+                        res.render("secrets");
+                    } else {
+                        res.send("Wrong password");
+                    }
+                })
             } else {
-                res.send("Wrong username or password");
+                res.send("No username");
             }
         })
 
@@ -60,14 +69,17 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-    try {
+    bcrypt.hash(req.body.password, saltingRounds, function(err, hash) {
+        try {
         User({
             email: req.body.username,
-            password: md5(req.body.password)
+            password: hash
         }).save().then(res.render("secrets"));
-    } catch (err) {
-        console.error(err);
-    }
+        } catch (error) {
+            console.error(error);
+        }
+    })
+    
 });
 
 
